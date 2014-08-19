@@ -5,9 +5,9 @@ from coils import connect, TwistedSession
 from twisted.internet import reactor
 
 
-nodes = [
+nodes = {
          'nice-name': ('some:ipv4:addr:ess0:0000:0000:0000:0000', 11234, 'thepassword')
-        ]
+        }
 
 class WhoAmI(TwistedSession):
 
@@ -15,8 +15,6 @@ class WhoAmI(TwistedSession):
         print "Asking whoami"
         print self.engage('NodeStore_nodeForAddr')
         print self.engage('InterfaceController_peerStats')
-
-        reactor.stop()
 
 
 
