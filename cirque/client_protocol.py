@@ -50,8 +50,11 @@ class CJDNSAdminClient(DatagramProtocol):
     messages = {}
     address_lookups = {}
     routing_table = {}
+    known_names = {}
 
     queue = DeferredQueue()
+    keepalive = False
+    node_information = None
 
 
     def __init__(self, host, port, password):
@@ -172,7 +175,8 @@ class CJDNSAdminClient(DatagramProtocol):
 
     def startProtocol(self):
         self.ping()
-        reactor.callLater(1, self.advance_countdown)
+        if not self.keepalive:
+            reactor.callLater(1, self.advance_countdown)
 
     def show_nice_name(self, ip):
         return self.known_names.get(ip) or ip
@@ -231,6 +235,7 @@ class CJDNSAdminClient(DatagramProtocol):
 
             if response_function_name == 'NodeStore_nodeForAddr':
                 print "======NODE INFORMATION======"
+                self.node_information = data_dict['result']
                 pprint.pprint(data_dict)
                 print "======END NODE INFORMATION======"
 
@@ -281,4 +286,7 @@ class CJDNSAdminClient(DatagramProtocol):
         txid = random_string()
         self.address_lookups[txid] = address
         self.engage('RouterModule_lookup', txid, address=address)
+
+    def get_node_information(self):
+        return self.node_information
 
