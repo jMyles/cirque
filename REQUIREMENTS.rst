@@ -1,4 +1,2 @@
-
 django
 hendrix
-

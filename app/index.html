@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html lang="en" ng-app="cirque" class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html lang="en" ng-app="cirque" class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html lang="en" ng-app="cirque" class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html lang="en" ng-app="cirque"> <!--<![endif]-->
+
+ <head>
+    <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.2.10/angular.js"></script>
+    <script src="http://angular-ui.github.io/bootstrap/ui-bootstrap-tpls-0.11.0.js"></script>
+    <script src="js/tabs.js"></script>
+    <link href="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" rel="stylesheet">
+  </head>
+  <body>
+
+    <div ng-controller="Alert">
+      <alert ng-repeat="alert in alerts" type="{{alert.type}}" close="closeAlert($index)">{{alert.msg}}</alert>
+      <button class='btn btn-default' ng-click="addAlert()">Add Alert</button>
+    </div>
+
+    <div ng-controller="Tabs">
+      <tabset justified="true">
+        <tab heading="Justified">Justified content</tab>
+        <tab heading="SJ">Short Labeled Justified content</tab>
+        <tab heading="Long Justified">Long Labeled Justified content</tab>
+      </tabset>
+    </div>
+
+
+
+  </body>
+</html>
