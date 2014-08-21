@@ -1,5 +1,10 @@
 /* app css stylesheet */
 
+.gridStyle {
+    border: 1px solid rgb(212,212,212);
+    position: absolute;
+}
+
 .menu {
   list-style: none;
   border-bottom: 0.1em solid black;
