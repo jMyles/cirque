@@ -37,6 +37,159 @@ def random_string():
         for x in range(10))
 
 
+class CJDNSInquiry(object):
+    '''
+    A question-and-answer session between a client and the CJDNS Admin API
+    about a particular topic.
+    '''
+    cookie = None
+
+    default_args = {}
+    call_args = {}
+
+    finished = False
+    result = None
+
+    def __init__(self, client, function_name, **kwargs):
+        self.client = client
+
+        def send(data):
+            '''
+            This closure is a workaround because twisted won't let us
+            connect in advance with ipv6
+            '''
+            def send_closure(data, host, port):
+                return client.transport.write(data, (host, port))
+
+            return send_closure(data, client.host, client.port)
+
+        self.send = send
+
+        self.function_name = function_name
+
+        self.default_args = self.client.functions_available[function_name]
+
+        for arg in self.default_args:
+            if arg not in kwargs:
+                # If the user didn't specify a value (ie, they didn't override the value for this kwarg)
+                # then we'll assume they want the default.
+                self.call_args[arg] = self.default_args[arg]
+            else:
+                # ...otherwise, we go with their kwarg.
+                self.call_args[arg] = kwargs[arg]
+
+    def __repr__(self):
+        return "%s on %s" % (self.function_name, self.cookie)
+
+    def request_cookie(self):
+        '''
+        Obtain a cookie
+        '''
+        if SUPER_VERBOSE:
+            print "requested cookie for to run %s as %s" % (function_name, txid)
+
+        txid = random_string()
+        request = {'q': 'cookie', 'txid': txid}
+        self.send(bencoder.encode(request))
+
+        return txid
+
+    def consume_cookie(self, data_dict, auto_call=True):
+        self.cookie = data_dict['cookie']
+
+        if auto_call:
+            return self.call()
+
+
+
+    def call(self):
+        '''
+        Call the function, passing self.arguments.
+        Use self.cookie for auth if provided.
+        '''
+        password=self.client.password
+
+        txid = random_string()
+
+        pass_hash = hashlib.sha256(password + self.cookie).hexdigest()
+
+        req = {
+            'q': 'auth',
+            'aq': self.function_name,
+            'hash': pass_hash,
+            'cookie': self.cookie,
+            'args': self.call_args,
+            'txid': txid
+        }
+        first_time_benc_req = bencoder.encode(req)
+        req['hash'] = hashlib.sha256(first_time_benc_req).hexdigest()
+        second_time_benc_req = bencoder.encode(req)
+
+        if SUPER_VERBOSE:
+            print "Calling function: %s" % req
+
+        self.send(second_time_benc_req)
+
+        return txid
+
+    def receive_data(self, data_dict):
+        if SUPER_VERBOSE:
+            pprint.pprint("RESPONSE FOR %s is: %s" % (self.function_name, data_dict))
+
+
+        if data_dict.has_key('peers'):
+            result = data_dict['peers']
+            self.close()
+
+        if data_dict.get('txid'):
+            if data_dict['txid'] in self.client.address_lookups.keys():
+                ip = self.address_lookups[data_dict['txid']]
+                print "%s has a route: %s" % (self.client.show_nice_name(ip), data_dict['result'])
+
+        if data_dict.has_key('result'):
+#             self.deal_with_result(data_dict['result'])  # TODO: This is a reasonable pattern.  Let's implement it.
+
+            print "======GOT RESULT for %s======" % self.function_name
+
+
+            if self.function_name == 'NodeStore_nodeForAddr':
+                self.client.node_information = data_dict['result']
+                self.result = data_dict['result']
+                self.client.report_completed_inquiry(self)
+
+
+        if data_dict.has_key('routingTable'):
+            routing_table = data_dict['routingTable']
+            for route in routing_table:
+                self.routing_table[route.pop('ip')] = route
+            if data_dict.has_key('more'):
+                self.engage('NodeStore_dumpTable', page=page+1)
+            else:
+                print "======ROUTING TABLE======"
+                for ip, route in self.routing_table.items():
+                    print "%s - %s" % (self.show_nice_name(ip), route)
+                print "======END ROUTING TABLE======"
+
+        if self.function_name in('SwitchPinger_ping', 'RouterModule_pingNode'):
+            print "======PING RESULT======"
+            pprint.pprint(data_dict)
+
+        if self.function_name == "ETHInterface_beginConnection":
+            print "======Ethernet Connection======"
+            pprint.pprint(data_dict)
+
+        if self.function_name == "AdminLog_subscribe":
+            pprint.pprint(data_dict, log_file)
+
+
+    def close(self):
+        self.finished = True
+        self.client.report_completed_inquiry(self)
+
+
+
+
+
 class CJDNSAdminClient(DatagramProtocol):
 
     timeout = 3
@@ -45,12 +198,14 @@ class CJDNSAdminClient(DatagramProtocol):
         'ping': {'q': 'ping'}
                }
 
-    functions = {}
-    function_queue = {}
+    functions_available = {}
     messages = {}
     address_lookups = {}
     routing_table = {}
     known_names = {}
+
+    open_inquiries = {}
+    completed_inquiries = []
 
     queue = DeferredQueue()
     keepalive = False
@@ -84,68 +239,35 @@ class CJDNSAdminClient(DatagramProtocol):
             self.function_pages_registered = 0
             self.ask_for_functions(0)
 
-    def get_cookie(self, txid=None):
-        if not txid:
-            txid = random_string()
+    def engage(self, function_name, page=None, **kwargs):
+        '''
+        Begin an exchange with a CJDNS instance.
+        Instantiates a CJDNSInquiry object and returns it.
+        '''
+        inquiry = CJDNSInquiry(self, function_name)
+        txid = inquiry.request_cookie()
+        self.open_inquiries[txid] = inquiry
 
-        request = {'q': 'cookie', 'txid': txid}
-        self.transport.write(bencoder.encode(request), (self.host, self.port))
-        return txid
 
-    def engage(self, function_name, txid=None, page=None, **kwargs):
-        call_args = {}
-
-        default_args = self.functions[function_name]
-
-        for arg in default_args:
-            if arg not in kwargs:
-                # If the user didn't specify a value (ie, they didn't override the value for this kwarg)
-                # then we'll assume they want the default.
-                call_args[arg] = default_args[arg]
-            else:
-                # ...otherwise, we go with their kwarg.
-                call_args[arg] = kwargs[arg]
+###########################
 
 
         # If either page or kwargs['page'] is set, we'll pass that value.
-        if kwargs.get('page'):
-            call_args['page'] = kwargs.get('page')
-
-        if page is not None:
-            call_args['page'] = page
-
-        txid = self.get_cookie(txid)
-
-        if SUPER_VERBOSE:
-            print "requested cookie for to run %s as %s" % (function_name, txid)
+#         if kwargs.get('page'):
+#             call_args['page'] = kwargs.get('page')
+#
+#         if page is not None:
+#             call_args['page'] = page
+#
+#         txid = self.get_cookie(txid)
 
 
-        self.function_queue[txid] = (function_name, call_args, page)
 
-    def call_function(self, cookie, function_name, call_args, txid=None, password=None):
-        if not password:
-            password=self.password
 
-        if not txid:
-            txid = random_string()
 
-        pass_hash = hashlib.sha256(password + cookie).hexdigest()
+#         self.function_queue[txid] = (function_name, call_args, page)
 
-        req = {
-            'q': 'auth',
-            'aq': function_name,
-            'hash': pass_hash,
-            'cookie': cookie,
-            'args': call_args,
-            'txid': txid
-        }
-        first_time_benc_req = bencoder.encode(req)
-        req['hash'] = hashlib.sha256(first_time_benc_req).hexdigest()
-        second_time_benc_req = bencoder.encode(req)
 
-        if SUPER_VERBOSE:
-            print "Calling function: %s" % req
-        self.transport.write(second_time_benc_req, (self.host, self.port))
 
     def subscribe_to_log(self):
         self.engage("AdminLog_subscribe",
@@ -161,7 +283,7 @@ class CJDNSAdminClient(DatagramProtocol):
 
 
     def register_functions(self, function_dict, more_to_come):
-        self.functions.update(function_dict)
+        self.functions_available.update(function_dict)
         self.function_pages_registered += 1
 
         if more_to_come:
@@ -189,79 +311,44 @@ class CJDNSAdminClient(DatagramProtocol):
         self.countdown = self.timeout
         data_dict = bencoder.decode(data)
 
-        try:
-            response_function_name, call_args, page = self.function_queue[data_dict['txid']]
-        except KeyError:
-            response_function_name = None
-
-        if SUPER_VERBOSE:
-            pprint.pprint("RESPONSE FOR %s is: %s" % (response_function_name, data_dict))
-
+        '''
+        First, the two cases where we don't expect a txid: pong and availableFunctions.
+        These don't involve a CJDNSInquiry - they affect this client object.
+        '''
 
         if data_dict.get('q')  == "pong":
-            self.pong()
+            return self.pong()
 
         if data_dict.has_key('availableFunctions'):
             functions_dict = data_dict['availableFunctions']
-            self.register_functions(functions_dict,
+            return self.register_functions(functions_dict,
                                     more_to_come=True if ('more' in data_dict) else False)
 
+        '''
+        Second, we'll deal with logs.
+        '''
+        if data_dict.has_key('streamId'):
+            return self.dispatch_log_event(data_dict)
+
+        '''
+        Now, the stuff for which we believe we already had an inquiry.
+        '''
+        txid = data_dict['txid']
+
+        try:
+            inquiry = self.open_inquiries.pop(txid)
+        except Exception, e:
+            raise
+
         if data_dict.has_key('cookie'): # We determine this to be a cookie
-            try:
-                return self.call_function(data_dict['cookie'], response_function_name, call_args, txid=data_dict['txid'])
-            except KeyError:
-                print "Got a cookie with no txid.  Weird.  data_dict was %s" % data_dict
-                return
+            new_txid = inquiry.consume_cookie(data_dict)
+            self.open_inquiries[new_txid] = inquiry
+            return new_txid
 
-        if data_dict.has_key('peers'):
-            print "======PEERS LIST======"
-            for peer in data_dict['peers']:
-                peer_address =  publicToIp6.PublicToIp6_convert(peer.pop('publicKey'))
-                print "===%s===" % self.show_nice_name(peer_address)
-                pprint.pprint(peer)
-                self.route_lookup(peer_address)
-            print "======END PEERS LIST======"
-
-        if data_dict.get('txid'):
-            if data_dict['txid'] in self.address_lookups.keys():
-                ip = self.address_lookups[data_dict['txid']]
-                print "%s has a route: %s" % (self.show_nice_name(ip), data_dict['result'])
-
-        if data_dict.has_key('result'):
-#             self.deal_with_result(data_dict['result'])  # TODO: This is a reasonable pattern.  Let's implement it.
-
-            print "======GOT RESULT for %s======" % response_function_name
+        else:
+            return inquiry.receive_data(data_dict)
 
 
-            if response_function_name == 'NodeStore_nodeForAddr':
-                print "======NODE INFORMATION======"
-                self.node_information = data_dict['result']
-                pprint.pprint(data_dict)
-                print "======END NODE INFORMATION======"
-
-
-        if data_dict.has_key('routingTable'):
-            routing_table = data_dict['routingTable']
-            for route in routing_table:
-                self.routing_table[route.pop('ip')] = route
-            if data_dict.has_key('more'):
-                self.engage('NodeStore_dumpTable', page=page+1)
-            else:
-                print "======ROUTING TABLE======"
-                for ip, route in self.routing_table.items():
-                    print "%s - %s" % (self.show_nice_name(ip), route)
-                print "======END ROUTING TABLE======"
-
-        if response_function_name in('SwitchPinger_ping', 'RouterModule_pingNode'):
-            print "======PING RESULT======"
-            pprint.pprint(data_dict)
-
-        if response_function_name == "ETHInterface_beginConnection":
-            print "======Ethernet Connection======"
-            pprint.pprint(data_dict)
-
-        if response_function_name == "AdminLog_subscribe":
-            pprint.pprint(data_dict, log_file)
 
 
 
@@ -289,4 +376,14 @@ class CJDNSAdminClient(DatagramProtocol):
 
     def get_node_information(self):
         return self.node_information
+
+    def report_completed_inquiry(self, inquiry):
+        self.completed_inquiries.append(inquiry)
+        self.dispatch_result(inquiry)
+
+    def dispatch_result(self, inquiry):
+        pass
+
+    def dispatch_log_event(self, data_dict):
+        pass
 

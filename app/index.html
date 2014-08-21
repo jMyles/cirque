@@ -4,40 +4,41 @@
 <!--[if IE 8]>         <html lang="en" ng-app="cirque" class="no-js lt-ie9"> <![endif]-->
 <!--[if gt IE 8]><!--> <html lang="en" ng-app="cirque"> <!--<![endif]-->
 
- <head>
-    <script src="js/jquery-2.1.1.min.js"></script>
-    <script src="js/angular.js"></script>
-    <script src="js/ui-bootstrap-tpls-0.11.0.min.js"></script>
-    <script src="js/main.js"></script>
-    <script src="http://angular-ui.github.com/ng-grid/lib/ng-grid.debug.js"></script>
-    <script src="js/ui-grid-unstable.js"></script>
-    <link href="css/bootstrap.min.css" rel="stylesheet">
-    <link href="css/ui-grid.min.css" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="http://angular-ui.github.com/ng-grid/css/ng-grid.css" />
+    <head>
+      <script src="js/jquery-2.1.1.min.js"></script>
+      <script src="js/angular.js"></script>
+      <script src="js/ui-bootstrap-tpls-0.11.0.min.js"></script>
+      <script src="js/main.js"></script>
+      <script src="http://angular-ui.github.com/ng-grid/lib/ng-grid.debug.js"></script>
+      <script src="js/ui-grid-unstable.js"></script>
+      <link href="css/bootstrap.min.css" rel="stylesheet">
+      <link href="css/ui-grid.min.css" rel="stylesheet">
+      <link rel="stylesheet" type="text/css" href="http://angular-ui.github.com/ng-grid/css/ng-grid.css" />
     </head>
-  <body>
+    <body>
 
-    <div ng-controller="Alert">
-      <alert ng-repeat="alert in alerts" type="{{alert.type}}" close="closeAlert($index)">{{alert.msg}}</alert>
-      <button class='btn btn-default' ng-click="addAlert()">Dont Press.</button>
-    </div>
+        <div ng-controller="Alert">
+          <alert ng-repeat="alert in alerts" type="{{alert.type}}" close="closeAlert($index)">{{alert.msg}}</alert>
+          <button class='btn btn-default' ng-click="addAlert()">Dont Press.</button>
+        </div>
 
-    <div ng-controller="Tabs">
-      <tabset justified="true">
-        <tab heading="Justified">
+        <div ng-controller="Tabs">
+          <tabset justified="true">
+            <tab heading="Justified">
 
-        </tab>
-        <tab heading="SJ">Short Labeled Justified content</tab>
-        <tab heading="Long Justified">Long Labeled Justified content</tab>
-      </tabset>
-    </div>
+            </tab>
+            <tab ng-contoller="Peers" heading="Peers"></tab>
+            <tab heading="Long Justified">Long Labeled Justified content</tab>
+          </tabset>
+        </div>
 
-    <div ng-controller="Table">
 
-      <div class="gridStyle" ng-grid="gridOptions">
-      </div>
+        <div ng-controller="Table">
 
-    </div>
+          <div class="gridStyle" ng-grid="gridOptions">
+          </div>
+
+        </div>
 
   </body>
 </html>

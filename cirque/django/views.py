@@ -1,43 +1,63 @@
 from django.http.response import HttpResponse
 
 sockjs = '''
-<script src="http://cdn.sockjs.org/sockjs-0.3.min.js"></script>
-<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.22/angular.min.js"></script>
-<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
-<script type="text/javascript">
- var sock = new SockJS('http://localhost:8080/messages/main');
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html lang="en" ng-app="cirque" class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html lang="en" ng-app="cirque" class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html lang="en" ng-app="cirque" class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html lang="en" ng-app="cirque"> <!--<![endif]-->
 
-subscribe_to_channel = function(channel_address){
-var data = {
-hx_subscribe:channel_address,
-};
-// console.log(data)
-sock.send(JSON.stringify(data));
-}
+ <head>
+    <script src="static/js/jquery-2.1.1.min.js"></script>
+    <script src="static/js/angular.js"></script>
+    <script src="static/js/ui-bootstrap-tpls-0.11.0.min.js"></script>
 
- sock.onopen = function() {
-     console.log('open');
-     subscribe_to_channel('cjdns_announce');
- };
- sock.onmessage = function(e) {
-     $('#cjdns').append(e.data);
-     console.log('message', e.data);
- };
- sock.onclose = function() {
-     console.log('close');
- };
- </script>
+    <script src="http://angular-ui.github.com/ng-grid/lib/ng-grid.debug.js"></script>
+    <script src="http://cdn.sockjs.org/sockjs-0.3.min.js"></script>
 
- <!DOCTYPE html>
-<html>
+    <script>
+    window.sock = new SockJS('http://localhost:8080/messages/main');
+    </script>
 
-<body>
+    <script src="static/js/main.js"></script>
+    <link href="static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="static/css/ui-grid.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="http://angular-ui.github.com/ng-grid/css/ng-grid.css" />
+    </head>
+  <body>
 
-    <div id="cjdns"></div>
+    <div ng-controller="Alert">
+      <alert ng-repeat="alert in alerts" type="{{alert.type}}" close="closeAlert($index)">{{alert.msg}}</alert>
+      <button class='btn btn-default' ng-click="addAlert()">Dont Press.</button>
+    </div>
 
-</body>
+    <div ng-controller="Tabs">
+      <tabset justified="true">
+        <tab heading="Justified">
+
+        </tab>
+        <tab ng-controller="Peers" heading="Peers">
+            <div ng-repeat="peer in peers">
+                {{peer}}
+            </div>
+        </tab>
+        <tab ng-controller="Logs" heading="Logs">
+          <div ng-repeat="entry in log_entries">
+              {{entry}}
+          </div>
+        </tab>
+      </tabset>
+    </div>
+
+    <div ng-controller="Table">
+
+      <div class="gridStyle" ng-grid="gridOptions">
+      </div>
+
+    </div>
+
+  </body>
 </html>
-
 '''
 
 def main(request):

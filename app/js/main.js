@@ -1,15 +1,51 @@
 angular.module('cirque', ['ui.bootstrap', 'ngGrid']);
 
 
+
+subscribe_to_channel = function(channel_address){
+var data = {
+hx_subscribe:channel_address,
+};
+// console.log(data)
+window.sock.send(JSON.stringify(data));
+}
+
+ window.sock.onopen = function() {
+     console.log('open');
+     subscribe_to_channel('cjdns_announce');
+ };
+ window.sock.onclose = function() {
+     console.log('close');
+ };
+
+
 function Table($scope) {
-  $scope.myData = [{name: "Moroni", age: 50},
-    {name: "Tiancum", age: 43},
-    {name: "Jacob", age: 27},
-    {name: "Nephi", age: 29},
-    {name: "Enos", age: 34}
-    ];
-  $scope.gridOptions = { data: 'myData' };
-  };
+
+  $scope.gridOptions = { data: 'myData',
+        enableColumnResize: true,
+        enableColumnReordering: true,
+        headerRowHeight: 44,
+        enablePaging: true,
+        columnDefs: [{ field: "ip", width: 200},
+                    { field: "parentChildLabel", width: 200 },
+                    { field: "reach", width: 200 },
+                    { field: "encodingScheme", width: 200 }]
+   };
+  }
+
+function Peers($scope) {
+  $scope.peers = []
+}
+
+function Logs($scope) {
+    $scope.log_entries = ['Sample log entry.']
+    sock.onmessage = function(e) {
+          var array = $.map(JSON.parse(e.data).message, function(value, index) {
+            return [value];
+        });
+            $scope.log_entries.push({msg: array});
+        };
+}
 
 function Alert($scope) {
   $scope.alerts = [
@@ -26,7 +62,6 @@ function Alert($scope) {
   };
 
 }
-
 
 var Tabs = function ($scope) {
   $scope.tabs = [
