@@ -15,10 +15,6 @@ sockjs = '''
     <script src="http://angular-ui.github.com/ng-grid/lib/ng-grid.debug.js"></script>
     <script src="http://cdn.sockjs.org/sockjs-0.3.min.js"></script>
 
-    <script>
-    window.sock = new SockJS('http://localhost:8080/messages/main');
-    </script>
-
     <script src="static/js/main.js"></script>
     <link href="static/css/bootstrap.min.css" rel="stylesheet">
     <link href="static/css/ui-grid.min.css" rel="stylesheet">
@@ -42,9 +38,9 @@ sockjs = '''
             </div>
         </tab>
         <tab ng-controller="Logs" heading="Logs">
-          <div ng-repeat="entry in log_entries">
-              {{entry}}
-          </div>
+
+          <div class="gridStyle" ng-grid="gridOptions"></div>
+
         </tab>
       </tabset>
     </div>

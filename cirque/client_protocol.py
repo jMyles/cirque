@@ -187,9 +187,6 @@ class CJDNSInquiry(object):
         self.client.report_completed_inquiry(self)
 
 
-
-
-
 class CJDNSAdminClient(DatagramProtocol):
 
     timeout = 3
@@ -228,7 +225,10 @@ class CJDNSAdminClient(DatagramProtocol):
             print "Yep! CJDNS admin is responding."
 
     def ping(self):
-        print "Pinging."
+        '''
+        Pings the CJDNS Admin API for this node, ensuring it is up.
+        If no pong is received within 1 second, try again.
+        '''
         ping = bencoder.encode(self.actions['ping'])
         reactor.callLater(1, self.check_ponged)
         self.transport.write(ping, (self.host, self.port))

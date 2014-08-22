@@ -1,16 +1,28 @@
 from hendrix.deploy import HendrixDeploy
 from cirque.client_protocol import CJDNSAdminClient
 import django
-from hendrix.contrib.async.resources import MessageResource
+from hendrix.contrib.async.resources import MessageResource,\
+    MessageHandlerProtocol
 from hendrix.contrib.async.messaging import send_json_message, hxdispatcher
 from twisted.internet.task import LoopingCall
-from hendrix.resources import DjangoStaticResource
+from hendrix.resources import DjangoStaticResource, NamedResource
 import json
+from txsockjs.factory import SockJSResource
+from twisted.internet.protocol import Factory
+
 
 class CirqueDeploy(HendrixDeploy):
     pass
 
-class CirqueListener(CJDNSAdminClient):
+
+class CirqueHendrixListener(MessageHandlerProtocol):
+
+    def dataReceived(self, data):
+        print "Received %s" % data
+        return MessageHandlerProtocol.dataReceived(self, data)
+
+
+class CirqueCJDNSListener(CJDNSAdminClient):
 
     keepalive = True
 
@@ -26,14 +38,23 @@ class CirqueListener(CJDNSAdminClient):
 
     def dispatch_log_event(self, data_dict):
         print "Sending log event %s" % data_dict
-        send_json_message('cjdns_announce', data_dict)
+        send_json_message('log-debug', data_dict)
 
 
 deploy = CirqueDeploy(options={'settings':'settings'})
-deploy.resources.append(MessageResource)
+
+CirqueResource = NamedResource('messages')
+CirqueResource.putChild(
+    'cirque_websocket',
+    SockJSResource(Factory.forProtocol(CirqueHendrixListener))
+)
+
+deploy.resources.append(CirqueResource)
+
+
 reactor = deploy.reactor
 
-cjdns_sesh = CirqueListener('127.0.0.1', 11234, "pkdf8rnwtsd0dn1k3289bh9yq0855cp")
+cjdns_sesh = CirqueCJDNSListener('127.0.0.1', 11234, "pkdf8rnwtsd0dn1k3289bh9yq0855cp")
 
 static_resource = DjangoStaticResource("app", "static")
 deploy.resources.append(static_resource)
