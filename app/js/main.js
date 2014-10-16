@@ -4,7 +4,7 @@
 
   angular.module('cirque', ['ui.bootstrap', 'ngGrid']);
 
-  window.sock = new SockJS('http://localhost:8080/messages/cirque_websocket');
+  window.sock = new SockJS('/messages/cirque_websocket');
 
   subscribe_to_channel = function(channel_address) {
     var data;

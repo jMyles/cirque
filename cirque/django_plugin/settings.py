@@ -48,9 +48,9 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
-ROOT_URLCONF = 'cirque.django.urls'
+ROOT_URLCONF = 'urls'
 
-WSGI_APPLICATION = 'cirque.django.wsgi.application'
+WSGI_APPLICATION = 'django_plugin.wsgi.application'
 
 
 # Database
@@ -81,3 +81,6 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/dev/howto/static-files/
 
 STATIC_URL = '/static/'
+
+HTTP_PORT = 8010
+CACHE_PORT = 7001

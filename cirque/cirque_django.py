@@ -1,5 +1,5 @@
 from hendrix.deploy import HendrixDeploy
-from cirque.client_protocol import CJDNSAdminClient
+from client_protocol import CJDNSAdminClient
 import django
 from hendrix.contrib.async.resources import MessageResource,\
     MessageHandlerProtocol
@@ -41,7 +41,7 @@ class CirqueCJDNSListener(CJDNSAdminClient):
         send_json_message('log-debug', data_dict)
 
 
-deploy = CirqueDeploy(options={'settings':'settings'})
+deploy = CirqueDeploy(options={'settings':'django_plugin.settings', 'HTTP_PORT': 8010})
 
 CirqueResource = NamedResource('messages')
 CirqueResource.putChild(
@@ -64,5 +64,3 @@ reactor.listenUDP(5500, cjdns_sesh)
 
 django.setup()
 deploy.run()
-
-
