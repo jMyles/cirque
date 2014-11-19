@@ -54,7 +54,7 @@ deploy.resources.append(CirqueResource)
 
 reactor = deploy.reactor
 
-cjdns_sesh = CirqueCJDNSListener('127.0.0.1', 11234, "pkdf8rnwtsd0dn1k3289bh9yq0855cp")
+cjdns_sesh = CirqueCJDNSListener('fcfc:2e9c:b919:8765:e15a:3b33:a5d1:eecb', 11234, "pkdf8rnwtsd0dn1k3289bh9yq0855cp")
 
 static_resource = DjangoStaticResource("app", "static")
 deploy.resources.append(static_resource)
