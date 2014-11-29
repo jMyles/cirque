@@ -1,18 +1,5 @@
-# You may redistribute this program and/or modify it under the terms of
-# the GNU General Public License as published by the Free Software Foundation,
-# either version 3 of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-
 from twisted.internet import reactor
-from twisted.internet.defer import DeferredQueue, QueueUnderflow
+from twisted.internet.defer import DeferredQueue, QueueUnderflow, Deferred
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.task import LoopingCall
 import bencoder
@@ -22,11 +9,13 @@ import random
 import string
 import hashlib
 
+from pprint import pprint
+
 
 
 BUFFER_SIZE = 69632
 KEEPALIVE_INTERVAL_SECONDS = 2
-SUPER_VERBOSE = False
+SUPER_VERBOSE = True
 
 log_file = open('admin_api_log', 'w')  # TODO: Better job of file naming here.
 
@@ -50,7 +39,19 @@ class CJDNSInquiry(object):
     finished = False
     result = None
 
-    def __init__(self, client, function_name, **kwargs):
+    def __unicode__(self):
+        return "%s for %s" % (self.fuction_name, self.client)
+
+    def __init__(self, client, function_name, page=None, callbacks=None, *args, **kwargs):
+        self.deferred = Deferred()
+        
+        self.page = page
+        
+        self.callbacks = callbacks
+        
+        for callback in callbacks or []:  # If no callbacks, don't iterate.
+            self.deferred.addCallback(callback)
+
         self.client = client
 
         def send(data):
@@ -77,20 +78,20 @@ class CJDNSInquiry(object):
             else:
                 # ...otherwise, we go with their kwarg.
                 self.call_args[arg] = kwargs[arg]
-
-    def __repr__(self):
-        return "%s on %s" % (self.function_name, self.cookie)
+            
+        if self.page:
+            self.call_args['page'] = self.page
 
     def request_cookie(self):
         '''
         Obtain a cookie
         '''
-        if SUPER_VERBOSE:
-            print "requested cookie for to run %s as %s" % (function_name, txid)
-
         txid = random_string()
         request = {'q': 'cookie', 'txid': txid}
         self.send(bencoder.encode(request))
+
+        if SUPER_VERBOSE:
+            print "requested cookie for to run %s as %s" % (self.function_name, txid)
 
         return txid
 
@@ -99,8 +100,6 @@ class CJDNSInquiry(object):
 
         if auto_call:
             return self.call()
-
-
 
     def call(self):
         '''
@@ -133,11 +132,15 @@ class CJDNSInquiry(object):
         return txid
 
     def receive_data(self, data_dict):
+        result = self.deferred.callback(data_dict)
+        
         if SUPER_VERBOSE:
-            pprint.pprint("RESPONSE FOR %s is: %s" % (self.function_name, data_dict))
+            pprint("RESPONSE FOR %s is: %s" % (self.function_name, data_dict))
 
 
         if data_dict.has_key('peers'):
+            print "PEERS:"
+            print data_dict
             result = data_dict['peers']
             self.close()
 
@@ -161,13 +164,13 @@ class CJDNSInquiry(object):
         if data_dict.has_key('routingTable'):
             routing_table = data_dict['routingTable']
             for route in routing_table:
-                self.routing_table[route.pop('ip')] = route
+                self.client.routing_table[route.pop('ip')] = route
             if data_dict.has_key('more'):
-                self.engage('NodeStore_dumpTable', page=page+1)
+                self.client.engage('NodeStore_dumpTable', page=self.page+1, callbacks=self.callbacks)
             else:
                 print "======ROUTING TABLE======"
-                for ip, route in self.routing_table.items():
-                    print "%s - %s" % (self.show_nice_name(ip), route)
+                for ip, route in self.client.routing_table.items():
+                    print "%s - %s" % (self.client.show_nice_name(ip), route)
                 print "======END ROUTING TABLE======"
 
         if self.function_name in('SwitchPinger_ping', 'RouterModule_pingNode'):
@@ -180,6 +183,7 @@ class CJDNSInquiry(object):
 
         if self.function_name == "AdminLog_subscribe":
             pprint.pprint(data_dict, log_file)
+        
 
 
     def close(self):
@@ -239,35 +243,17 @@ class CJDNSAdminClient(DatagramProtocol):
             self.function_pages_registered = 0
             self.ask_for_functions(0)
 
-    def engage(self, function_name, page=None, **kwargs):
+    def engage(self, function_name, page=None, callbacks=None, **kwargs):
         '''
         Begin an exchange with a CJDNS instance.
         Instantiates a CJDNSInquiry object and returns it.
         '''
-        inquiry = CJDNSInquiry(self, function_name)
+        inquiry = CJDNSInquiry(self, function_name, page=page, callbacks=callbacks, **kwargs)
         txid = inquiry.request_cookie()
         self.open_inquiries[txid] = inquiry
-
-
-###########################
-
-
-        # If either page or kwargs['page'] is set, we'll pass that value.
-#         if kwargs.get('page'):
-#             call_args['page'] = kwargs.get('page')
-#
-#         if page is not None:
-#             call_args['page'] = page
-#
-#         txid = self.get_cookie(txid)
-
-
-
-
-
-#         self.function_queue[txid] = (function_name, call_args, page)
-
-
+        print "Engaging %s with txid %s" % (function_name, txid)
+        
+        return inquiry
 
     def subscribe_to_log(self):
         self.engage("AdminLog_subscribe",
@@ -338,6 +324,7 @@ class CJDNSAdminClient(DatagramProtocol):
         try:
             inquiry = self.open_inquiries.pop(txid)
         except Exception, e:
+            pprint("Encountered error while processing txid %s, open inquiries were: %s" % (txid, self.open_inquiries))
             raise
 
         if data_dict.has_key('cookie'): # We determine this to be a cookie
@@ -348,13 +335,8 @@ class CJDNSAdminClient(DatagramProtocol):
         else:
             return inquiry.receive_data(data_dict)
 
-
-
-
-
     def deal_with_result(result):
         pass
-
 
     def advance_countdown(self):
         self.countdown -= 1
@@ -386,4 +368,3 @@ class CJDNSAdminClient(DatagramProtocol):
 
     def dispatch_log_event(self, data_dict):
         pass
-
