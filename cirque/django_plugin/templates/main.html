@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html lang="en" ng-app="cirque" class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html lang="en" ng-app="cirque" class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html lang="en" ng-app="cirque" class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html lang="en" ng-app="cirque"> <!--<![endif]-->
+
+ <head>
+    <script src="static/bower_components/angular/angular.js"></script>
+    <script src="static/bower_components/angular-resource/angular-resource.js"></script>
+
+    <script src="http://cdn.sockjs.org/sockjs-0.3.min.js"></script>
+
+    <script src="static/js/cirque.js"></script>
+    <script src="static/js/services.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="http://angular-ui.github.com/ng-grid/css/ng-grid.css" />
+    </head>
+  <body ng-app="cirque">
+    BAHAHA CIRQUE
+    <div ng-controller="UserCtrl">
+      <ul>
+      <div ng-repeat="user in users">
+        <li>[[user.username]]</li>
+      </div>
+      </ul>
+    </div>
+    <div ng-controller="CJDNSRouteCtrl">
+      <ul>
+      <div ng-repeat="route in cjdnsRoutes">
+        <li>[[route]]</li>
+      </div>
+      </ul>
+    </div>
+  </body>
+</html>

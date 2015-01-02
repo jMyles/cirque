@@ -47,7 +47,7 @@ router.register(r'cjdnsroutes', CJDNSRouterSet)
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browseable API.
 urlpatterns = [
-    url(r'^$', 'cirque.django_plugin.views.drf_demo', name='main'),
+    url(r'^$', 'cirque.django_plugin.views.main', name='main'),
     url(r'^api/', include(router.urls)),
     url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework'))
 ]
